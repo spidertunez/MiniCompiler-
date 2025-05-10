@@ -5,8 +5,29 @@ class Parser {
   final List<Token> tokens;
   int current = 0;
   StringBuffer output = StringBuffer();
+  List<Map<String, dynamic>> transitionTable = [];
 
   Parser(this.tokens);
+
+  void _addTransition(
+    String state,
+    String input,
+    String stack,
+    String action,
+    String nextState,
+  ) {
+    transitionTable.add({
+      'state': state,
+      'input': input,
+      'stack': stack,
+      'action': action,
+      'nextState': nextState,
+    });
+  }
+
+  List<Map<String, dynamic>> getTransitionTable() {
+    return transitionTable;
+  }
 
   /*
   Grammar based on Example 1 from the document:
@@ -30,7 +51,16 @@ class Parser {
   bool parse() {
     try {
       output.writeln("Starting parsing...");
+      transitionTable.clear(); // Clear previous transitions
+      _addTransition('q0', 'START', '\$', 'INIT', 'q1');
       program();
+      _addTransition(
+        'q' + (current + 1).toString(),
+        'EOF',
+        'ACCEPT',
+        'ACCEPT',
+        'FINAL',
+      );
       output.writeln("Parsing completed successfully!");
       return true;
     } catch (e) {
@@ -41,6 +71,7 @@ class Parser {
 
   void program() {
     output.writeln("Program -> Stmt_list");
+    _addTransition('q1', 'PROGRAM', '\$', 'SHIFT', 'q2');
     stmtList();
 
     if (!isAtEnd()) {
@@ -55,9 +86,23 @@ class Parser {
 
     if (isAtEnd() || check(TokenType.RIGHT_BRACE)) {
       output.writeln("Stmt_list -> ε (empty)");
+      _addTransition(
+        'q' + (current + 1).toString(),
+        'ε',
+        'STMT_LIST',
+        'REDUCE',
+        'q' + (current + 2).toString(),
+      );
       return;
     }
 
+    _addTransition(
+      'q' + (current + 1).toString(),
+      'STMT_LIST',
+      'STACK',
+      'SHIFT',
+      'q' + (current + 2).toString(),
+    );
     stmt();
     stmtList();
   }
@@ -68,11 +113,25 @@ class Parser {
     );
 
     if (match([TokenType.IF])) {
+      _addTransition(
+        'q' + (current + 1).toString(),
+        'IF',
+        'STACK',
+        'SHIFT',
+        'q' + (current + 2).toString(),
+      );
       consume(TokenType.LEFT_PAREN, "Expect '(' after 'if'.");
       logicExpr();
       consume(TokenType.RIGHT_PAREN, "Expect ')' after condition.");
       stmt();
     } else if (match([TokenType.WHILE])) {
+      _addTransition(
+        'q' + (current + 1).toString(),
+        'WHILE',
+        'STACK',
+        'SHIFT',
+        'q' + (current + 2).toString(),
+      );
       consume(TokenType.LEFT_PAREN, "Expect '(' after 'while'.");
       logicExpr();
       consume(TokenType.RIGHT_PAREN, "Expect ')' after condition.");
@@ -82,6 +141,13 @@ class Parser {
     } else {
       if (match([TokenType.INT])) {
         output.writeln("Found type declaration: int");
+        _addTransition(
+          'q' + (current + 1).toString(),
+          'INT',
+          'STACK',
+          'SHIFT',
+          'q' + (current + 2).toString(),
+        );
         if (!check(TokenType.IDENTIFIER)) {
           throw Exception(
             "Expected identifier after type at line ${peek().line}",
@@ -89,12 +155,26 @@ class Parser {
         }
         Token id = advance();
         output.writeln("Found identifier: ${id.lexeme}");
+        _addTransition(
+          'q' + (current + 1).toString(),
+          'ID',
+          'STACK',
+          'SHIFT',
+          'q' + (current + 2).toString(),
+        );
         consume(TokenType.EQUAL, "Expect '=' after identifier in declaration.");
         mathExpr();
         consume(TokenType.SEMICOLON, "Expect ';' after declaration.");
       } else if (check(TokenType.IDENTIFIER)) {
         Token id = advance();
         output.writeln("Found identifier: ${id.lexeme}");
+        _addTransition(
+          'q' + (current + 1).toString(),
+          'ID',
+          'STACK',
+          'SHIFT',
+          'q' + (current + 2).toString(),
+        );
         consume(TokenType.EQUAL, "Expect '=' after identifier in assignment.");
         mathExpr();
         consume(TokenType.SEMICOLON, "Expect ';' after statement.");

@@ -40,13 +40,13 @@ class _CompilerScreenState extends State<CompilerScreen>
   final List<Token> _tokens = [];
   String _parserOutput = '';
   bool _isParsingSuccessful = false;
+  List<Map<String, dynamic>> _transitionTable = [];
   late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    // Initialize with empty editor
     _codeController.text = '';
   }
 
@@ -72,6 +72,7 @@ class _CompilerScreenState extends State<CompilerScreen>
         _tokens.addAll(tokens);
         _isParsingSuccessful = isSuccessful;
         _parserOutput = parser.getOutput();
+        _transitionTable = parser.getTransitionTable();
       });
 
       // Show success message
@@ -89,6 +90,7 @@ class _CompilerScreenState extends State<CompilerScreen>
       setState(() {
         _parserOutput = 'Error: $e';
         _isParsingSuccessful = false;
+        _transitionTable = [];
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -282,52 +284,137 @@ class _CompilerScreenState extends State<CompilerScreen>
                   elevation: 2,
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      columns: const [
-                        DataColumn(label: Text('State')),
-                        DataColumn(label: Text('Input')),
-                        DataColumn(label: Text('Stack')),
-                        DataColumn(label: Text('Action')),
-                        DataColumn(label: Text('Next State')),
-                      ],
-                      rows: const [
-                        DataRow(
-                          cells: [
-                            DataCell(Text('q0')),
-                            DataCell(Text('id')),
-                            DataCell(Text('\$')),
-                            DataCell(Text('Shift')),
-                            DataCell(Text('q1')),
-                          ],
+                    child: Theme(
+                      data: Theme.of(context).copyWith(
+                        dividerTheme: const DividerThemeData(
+                          color: Colors.grey,
+                          thickness: 1,
                         ),
-                        DataRow(
-                          cells: [
-                            DataCell(Text('q1')),
-                            DataCell(Text('=')),
-                            DataCell(Text('id\$')),
-                            DataCell(Text('Shift')),
-                            DataCell(Text('q2')),
-                          ],
+                      ),
+                      child: DataTable(
+                        headingRowColor: MaterialStateProperty.all(
+                          Theme.of(context).primaryColor.withOpacity(0.1),
                         ),
-                        DataRow(
-                          cells: [
-                            DataCell(Text('q2')),
-                            DataCell(Text('id')),
-                            DataCell(Text('id=\$')),
-                            DataCell(Text('Shift')),
-                            DataCell(Text('q3')),
-                          ],
-                        ),
-                        DataRow(
-                          cells: [
-                            DataCell(Text('q3')),
-                            DataCell(Text(';')),
-                            DataCell(Text('id=id\$')),
-                            DataCell(Text('Reduce')),
-                            DataCell(Text('q4')),
-                          ],
-                        ),
-                      ],
+                        dataRowColor: MaterialStateProperty.all(Colors.white),
+                        columns: const [
+                          DataColumn(
+                            label: Text(
+                              'State',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                          DataColumn(
+                            label: Text(
+                              'Input',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                          DataColumn(
+                            label: Text(
+                              'Stack',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                          DataColumn(
+                            label: Text(
+                              'Action',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                          DataColumn(
+                            label: Text(
+                              'Next State',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ],
+                        rows:
+                            _transitionTable.isEmpty
+                                ? [
+                                  DataRow(
+                                    cells: [
+                                      DataCell(
+                                        const Text(
+                                          'No transitions yet',
+                                          style: TextStyle(
+                                            color: Colors.grey,
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        ),
+                                      ),
+                                      const DataCell(Text('')),
+                                      const DataCell(Text('')),
+                                      const DataCell(Text('')),
+                                      const DataCell(Text('')),
+                                    ],
+                                  ),
+                                ]
+                                : _transitionTable.map((transition) {
+                                  return DataRow(
+                                    cells: [
+                                      DataCell(Text(transition['state'])),
+                                      DataCell(Text(transition['input'])),
+                                      DataCell(Text(transition['stack'])),
+                                      DataCell(
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                transition['action'] == 'SHIFT'
+                                                    ? Colors.blue.withOpacity(
+                                                      0.1,
+                                                    )
+                                                    : transition['action'] ==
+                                                        'REDUCE'
+                                                    ? Colors.green.withOpacity(
+                                                      0.1,
+                                                    )
+                                                    : Colors.orange.withOpacity(
+                                                      0.1,
+                                                    ),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            transition['action'],
+                                            style: TextStyle(
+                                              color:
+                                                  transition['action'] ==
+                                                          'SHIFT'
+                                                      ? Colors.blue
+                                                      : transition['action'] ==
+                                                          'REDUCE'
+                                                      ? Colors.green
+                                                      : Colors.orange,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      DataCell(Text(transition['nextState'])),
+                                    ],
+                                  );
+                                }).toList(),
+                      ),
                     ),
                   ),
                 ),
@@ -345,14 +432,33 @@ class _CompilerScreenState extends State<CompilerScreen>
                     padding: const EdgeInsets.all(16.0),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8.0),
+                      color: Colors.grey.shade50,
                     ),
-                    child: SelectableText(
-                      _parserOutput,
-                      style: const TextStyle(
-                        fontFamily: 'Courier New',
-                        fontSize: 14,
-                        height: 1.5,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_parserOutput.isEmpty)
+                          const Center(
+                            child: Text(
+                              'No syntax analysis performed yet',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 16,
+                              ),
+                            ),
+                          )
+                        else
+                          SelectableText.rich(
+                            TextSpan(
+                              children: _formatParserOutput(_parserOutput),
+                            ),
+                            style: const TextStyle(
+                              fontFamily: 'Courier New',
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -379,5 +485,88 @@ class _CompilerScreenState extends State<CompilerScreen>
         ],
       ),
     );
+  }
+
+  List<TextSpan> _formatParserOutput(String output) {
+    List<TextSpan> spans = [];
+    List<String> lines = output.split('\n');
+
+    for (String line in lines) {
+      if (line.isEmpty) {
+        spans.add(const TextSpan(text: '\n'));
+        continue;
+      }
+
+      if (line.startsWith('Error:')) {
+        spans.add(
+          TextSpan(
+            text: '$line\n',
+            style: const TextStyle(
+              color: Colors.red,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+      } else if (line.contains('->')) {
+        // Grammar rule
+        List<String> parts = line.split('->');
+        spans.add(
+          TextSpan(
+            text: parts[0].trim(),
+            style: TextStyle(
+              color: Theme.of(context).primaryColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+        spans.add(
+          TextSpan(
+            text: ' -> ',
+            style: TextStyle(
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+        spans.add(
+          TextSpan(
+            text: '${parts[1].trim()}\n',
+            style: const TextStyle(color: Colors.black87),
+          ),
+        );
+      } else if (line.startsWith('Found')) {
+        // Found tokens or operators
+        spans.add(
+          TextSpan(
+            text: '$line\n',
+            style: const TextStyle(
+              color: Colors.blue,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        );
+      } else if (line.contains('successfully')) {
+        // Success messages
+        spans.add(
+          TextSpan(
+            text: '$line\n',
+            style: const TextStyle(
+              color: Colors.green,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+      } else {
+        // Regular output
+        spans.add(
+          TextSpan(
+            text: '$line\n',
+            style: const TextStyle(color: Colors.black87),
+          ),
+        );
+      }
+    }
+
+    return spans;
   }
 }

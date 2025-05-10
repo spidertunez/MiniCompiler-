@@ -30,7 +30,6 @@ enum TokenType {
   BEGIN,
   END,
   INT,
-
   EOF,
 }
 
